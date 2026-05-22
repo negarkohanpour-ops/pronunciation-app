@@ -2,77 +2,102 @@
 
 import { useState, useRef } from "react";
 
+const words = [
+  "champignon",
+  "montagne",
+  "baignoire",
+  "cigogne",
+];
+
 export default function Home() {
+  const [index, setIndex] = useState(0);
   const [recording, setRecording] = useState(false);
   const [audioURL, setAudioURL] = useState("");
+  const [feedback, setFeedback] = useState("");
 
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  const word = words[index];
+
+  const playModel = () => {
+    const u = new SpeechSynthesisUtterance(word);
+    u.lang = "fr-FR";
+    speechSynthesis.speak(u);
+  };
+
+  const nextWord = () => {
+    setIndex((prev) => (prev + 1) % words.length);
+    setAudioURL("");
+    setFeedback("");
+  };
+
   const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
+
+    const recorder = new MediaRecorder(stream);
+    chunksRef.current = [];
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, {
+        type: "audio/webm",
       });
 
-      streamRef.current = stream;
+      const url = URL.createObjectURL(blob);
+      setAudioURL(url);
 
-      const recorder = new MediaRecorder(stream);
+      stream.getTracks().forEach((t) => t.stop());
 
-      recorderRef.current = recorder;
-      chunksRef.current = [];
+      // 🎯 fake evaluation
+      const ok = Math.random() > 0.5;
 
-      recorder.onstart = () => {
-        console.log("recording started");
-      };
+      setFeedback(
+        ok
+          ? "🟢 Bon son /ɲ/"
+          : "🔴 À améliorer : essaie de prononcer 'gn' comme dans 'montagne'"
+      );
+    };
 
-      recorder.ondataavailable = (e) => {
-        console.log("data:", e.data);
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
+    recorder.start();
+    setRecording(true);
 
-      recorder.onstop = () => {
-        console.log("stopped");
-
-        const blob = new Blob(chunksRef.current, {
-          type: "audio/webm",
-        });
-
-        const url = URL.createObjectURL(blob);
-        setAudioURL(url);
-
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-      };
-
-      recorder.start();
-
-      setRecording(true);
-
-      setTimeout(() => {
-        recorder.stop();
-        setRecording(false);
-      }, 3000);
-
-    } catch (err) {
-      console.error("MIC ERROR:", err);
-    }
+    setTimeout(() => {
+      recorder.stop();
+      setRecording(false);
+    }, 3000);
   };
 
   return (
     <main style={{ padding: 40 }}>
-      <h1>🎤 Audio Test</h1>
+      <h1>🇫🇷 Prononciation /ɲ/</h1>
 
-      <button onClick={startRecording}>
-        {recording ? "Recording..." : "Start Recording"}
-      </button>
+      <h2 style={{ fontSize: 30 }}>{word}</h2>
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={playModel}>▶ Écouter</button>
+
+        <button onClick={startRecording}>
+          {recording ? "Recording..." : "🎤 Enregistrer"}
+        </button>
+
+        <button onClick={nextWord}>➡ Suivant</button>
+      </div>
 
       {audioURL && (
         <div style={{ marginTop: 20 }}>
           <audio controls src={audioURL} />
         </div>
+      )}
+
+      {feedback && (
+        <p style={{ marginTop: 20, fontSize: 18 }}>
+          {feedback}
+        </p>
       )}
     </main>
   );
