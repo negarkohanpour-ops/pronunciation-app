@@ -8,7 +8,7 @@ export default function Home() {
       </h1>
 
       <p style={{ marginTop: 10 }}>
-        Choisissez un son :
+        Choisissez un son : 
       </p>
 
       <div
